@@ -25,6 +25,8 @@ public:
     QString toPlainText() const { return m_document->toPlainText(); }
     void mergeCurrentBlockFormat(const QTextBlockFormat &format);
     int pageCount() const { return m_document->pageCount(); }
+    void setZoom(qreal zoom);
+    qreal zoom() const { return m_zoom; }
 
 
 protected:
@@ -43,6 +45,8 @@ private:
     void redoAction();
     void selectAll();
     void applyDefaultParagraphSpacing(QTextCursor &cursor, int fromPos, int toPos);
+    void updateWidgetSize();
+    qreal m_zoom = 1.0;
 
     QTextDocument *m_document;
     QTextCursor m_cursor;

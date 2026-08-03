@@ -28,6 +28,10 @@ add_executable(Dixel main.cpp
         thememanager.cpp
         pagedtextwidget.h
         pagedtextwidget.cpp
+        minimapwidget.h
+        minimapwidget.cpp
+        zoomwidget.h
+        zoomwidget.cpp
         )
 target_link_libraries(Dixel
         Qt::Core

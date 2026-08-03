@@ -17,31 +17,30 @@ PagedTextWidget::PagedTextWidget(QTextDocument *document, QWidget *parent)
     : QWidget(parent), m_document(document), m_cursor(document) {
     m_document->setPageSize(QSizeF(PAGE_WIDTH, PAGE_HEIGHT));
 
-    int pageCount = m_document->pageCount();
-    int totalHeight = pageCount * PAGE_HEIGHT + (pageCount - 1) * PAGE_GAP;
-    setFixedSize(PAGE_WIDTH, totalHeight);
+    updateWidgetSize();
 
     connect(m_document, &QTextDocument::contentsChanged, this, [this]() {
-        int pageCount = m_document->pageCount();
-        int totalHeight = pageCount * PAGE_HEIGHT + (pageCount - 1) * PAGE_GAP;
-        setFixedSize(PAGE_WIDTH, totalHeight);
+        updateWidgetSize();
         update();
-        emit pageCountChanged(pageCount);
     });
 
     setFocusPolicy(Qt::StrongFocus);
 }
 
 int PagedTextWidget::hitTestToDocPos(const QPoint &widgetPos) {
-    int pageHeightWithGap = PAGE_HEIGHT + PAGE_GAP;
+    int scaledPageHeight = PAGE_HEIGHT * m_zoom;
+    int scaledPageGap = PAGE_GAP * m_zoom;
+    int pageHeightWithGap = scaledPageHeight + scaledPageGap;
+
     int page = widgetPos.y() / pageHeightWithGap;
-    int localY = widgetPos.y() % pageHeightWithGap;
-    if (localY > PAGE_HEIGHT) localY = PAGE_HEIGHT; // клик попал в серый промежуток
+    int localYScaled = widgetPos.y() % pageHeightWithGap;
+    if (localYScaled > scaledPageHeight) localYScaled = scaledPageHeight;
 
+    qreal localY = localYScaled / m_zoom;
+    qreal docX = widgetPos.x() / m_zoom;
     qreal docY = page * PAGE_HEIGHT + localY;
-    QPointF docPoint(widgetPos.x(), docY);
 
-    return m_document->documentLayout()->hitTest(docPoint, Qt::FuzzyHit);
+    return m_document->documentLayout()->hitTest(QPointF(docX, docY), Qt::FuzzyHit);
 }
 
 void PagedTextWidget::mousePressEvent(QMouseEvent *event) {
@@ -127,16 +126,21 @@ void PagedTextWidget::paintEvent(QPaintEvent *event) {
     painter.fillRect(rect(), QColor("#525659"));
 
     int pageCount = m_document->pageCount();
+    int scaledPageWidth = PAGE_WIDTH * m_zoom;
+    int scaledPageHeight = PAGE_HEIGHT * m_zoom;
+    int scaledPageGap = PAGE_GAP * m_zoom;
 
     for (int page = 0; page < pageCount; ++page) {
-        int yOffset = page * (PAGE_HEIGHT + PAGE_GAP);
+        int yOffset = page * (scaledPageHeight + scaledPageGap);
 
         // Белый фон листа
-        painter.fillRect(QRect(0, yOffset, PAGE_WIDTH, PAGE_HEIGHT), Qt::white);
+        painter.fillRect(QRect(0, yOffset, scaledPageWidth, scaledPageHeight), Qt::white);
 
         // Рисуем срез документа, соответствующий этой странице
         painter.save();
-        painter.translate(0, yOffset - page * PAGE_HEIGHT);
+        painter.translate(0, yOffset);
+        painter.scale(m_zoom, m_zoom);
+        painter.translate(0, -page * PAGE_HEIGHT);
         painter.setClipRect(QRectF(0, page * PAGE_HEIGHT, PAGE_WIDTH, PAGE_HEIGHT));
 
         QAbstractTextDocumentLayout::PaintContext ctx;
@@ -152,17 +156,15 @@ void PagedTextWidget::paintEvent(QPaintEvent *event) {
             selection.format.setBackground(QColor(160, 200, 250));
             ctx.selections.append(selection);
         }
+
         m_document->documentLayout()->draw(&painter, ctx);
 
         QTextBlock block = m_cursor.block();
         int cursorPos = m_cursor.position();
         QTextLine line = block.layout()->lineForTextPosition(cursorPos - block.position());
-
         if (line.isValid()) {
             QRectF blockRect = m_document->documentLayout()->blockBoundingRect(block);
             qreal x = line.cursorToX(cursorPos - block.position()) + blockRect.left();
-            qDebug() << "Cursor draw X:" << x;
-            //QRectF blockRect = m_document->documentLayout()->blockBoundingRect(block);
             qreal absoluteY = blockRect.top() + line.y();
 
             qreal pageTop = page * PAGE_HEIGHT;
@@ -281,4 +283,19 @@ void PagedTextWidget::applyDefaultParagraphSpacing(QTextCursor &cursor, int from
     QTextBlockFormat blockFmt;
     blockFmt.setBottomMargin(10); // фиксированный отступ между абзацами в пикселях
     formatCursor.mergeBlockFormat(blockFmt);
+}
+
+void PagedTextWidget::updateWidgetSize() {
+    int pageCount = m_document->pageCount();
+    int scaledPageWidth = PAGE_WIDTH * m_zoom;
+    int scaledPageHeight = PAGE_HEIGHT * m_zoom;
+    int scaledPageGap = PAGE_GAP * m_zoom;
+    int totalHeight = pageCount * scaledPageHeight + (pageCount - 1) * scaledPageGap;
+    setFixedSize(scaledPageWidth, totalHeight);
+}
+
+void PagedTextWidget::setZoom(qreal zoom) {
+    m_zoom = qBound(0.3, zoom, 3.0);
+    updateWidgetSize();
+    update();
 }

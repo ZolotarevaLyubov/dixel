@@ -26,6 +26,12 @@
 #include <QPainter>
 #include <QLabel>
 #include <QStatusBar>
+#include "minimapwidget.h"
+#include <QScrollBar>
+#include "zoomwidget.h"
+#include <QMouseEvent>
+#include <QEvent>
+#include <QCursor>
 
 MainWindow::MainWindow(const QString &filePath, QWidget *parent)
     : QMainWindow(parent), m_filePath(filePath) {
@@ -52,7 +58,24 @@ MainWindow::MainWindow(const QString &filePath, QWidget *parent)
     m_scrollArea->setObjectName("pageScrollArea");
     m_scrollArea->setStyleSheet("QScrollArea#pageScrollArea { border: none; }");
 
-    setCentralWidget(m_scrollArea);
+    m_zoomWidget = new ZoomWidget(m_scrollArea->viewport());
+    m_zoomWidget->hide();
+    connect(m_zoomWidget, &ZoomWidget::zoomInRequested, this, &MainWindow::zoomIn);
+    connect(m_zoomWidget, &ZoomWidget::zoomOutRequested, this, &MainWindow::zoomOut);
+
+    qApp->installEventFilter(this);
+
+    m_minimap = new MinimapWidget(m_document, this);
+    connect(m_minimap, &MinimapWidget::pageClicked, this, &MainWindow::scrollToPage);
+
+    auto *centralContainer = new QWidget(this);
+    auto *centralLayout = new QHBoxLayout(centralContainer);
+    centralLayout->addWidget(m_scrollArea, 1);
+    centralLayout->addWidget(m_minimap);
+    centralLayout->setContentsMargins(0, 0, 0, 0);
+    centralLayout->setSpacing(0);
+
+    setCentralWidget(centralContainer);
 
     setupToolbar();
     setupMenu();
@@ -347,4 +370,36 @@ void MainWindow::toggleParagraphSpacing(int index) {
 
 void MainWindow::updatePageCountLabel(int count) {
     m_pageCountLabel->setText(QString("Страниц: %1").arg(count));
+}
+
+void MainWindow::scrollToPage(int pageIndex) {
+    const int PAGE_GAP_LOCAL = 20;
+    int targetY = pageIndex * (PAGE_HEIGHT + PAGE_GAP_LOCAL) + 20; // +20 — учитываем верхний отступ контейнера
+    m_scrollArea->verticalScrollBar()->setValue(targetY);
+}
+
+void MainWindow::zoomIn() {
+    m_pagedWidget->setZoom(m_pagedWidget->zoom() + 0.1);
+}
+
+void MainWindow::zoomOut() {
+    m_pagedWidget->setZoom(m_pagedWidget->zoom() - 0.1);
+}
+
+bool MainWindow::eventFilter(QObject *watched, QEvent *event) {
+    if (event->type() == QEvent::MouseMove) {
+        QPoint globalPos = QCursor::pos();
+        QPoint viewportPos = m_scrollArea->viewport()->mapFromGlobal(globalPos);
+
+        QRect hotZone(m_scrollArea->viewport()->width() - 110, 0, 110, 50);
+
+        if (hotZone.contains(viewportPos)) {
+            m_zoomWidget->move(m_scrollArea->viewport()->width() - 100, 10);
+            m_zoomWidget->show();
+            m_zoomWidget->raise();
+        } else if (!m_zoomWidget->geometry().contains(viewportPos)) {
+            m_zoomWidget->hide();
+        }
+    }
+    return QMainWindow::eventFilter(watched, event);
 }

@@ -11,6 +11,8 @@ class QScrollArea;
 class QTextDocument;
 class PagedTextWidget;
 class QLabel;
+class MinimapWidget;
+class ZoomWidget;
 
 
 class MainWindow : public QMainWindow {
@@ -20,6 +22,7 @@ public:
 
 protected:
     void closeEvent(QCloseEvent *event) override;
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 private slots:
     void exportToPdf();
@@ -41,6 +44,9 @@ private slots:
     void changeLineSpacing(int index);
     void toggleParagraphSpacing(int index);
     void updatePageCountLabel(int count);
+    void scrollToPage(int pageIndex);
+    void zoomIn();
+    void zoomOut();
 
 private:
     void setupToolbar();
@@ -57,6 +63,9 @@ private:
     //QIcon createNoSpacingIcon();
     QComboBox *m_paragraphSpacingCombo;
     QLabel *m_pageCountLabel;
+    ZoomWidget *m_zoomWidget;
+
+    MinimapWidget *m_minimap;
 
     static const int PAGE_WIDTH = 794;
     static const int PAGE_HEIGHT = 1123;
