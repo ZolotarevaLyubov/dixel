@@ -391,10 +391,13 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event) {
         QPoint globalPos = QCursor::pos();
         QPoint viewportPos = m_scrollArea->viewport()->mapFromGlobal(globalPos);
 
-        QRect hotZone(m_scrollArea->viewport()->width() - 110, 0, 110, 50);
+        // Правый верхний угол именно листа, а не всего окна
+        QPoint pageTopRight = m_pagedWidget->mapTo(m_scrollArea->viewport(), QPoint(m_pagedWidget->width(), 0));
+
+        QRect hotZone(pageTopRight.x() - 130, 0, 130, 70);
 
         if (hotZone.contains(viewportPos)) {
-            m_zoomWidget->move(m_scrollArea->viewport()->width() - 100, 10);
+            m_zoomWidget->move(pageTopRight.x() - 130, 20);
             m_zoomWidget->show();
             m_zoomWidget->raise();
         } else if (!m_zoomWidget->geometry().contains(viewportPos)) {

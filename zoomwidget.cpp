@@ -5,26 +5,26 @@
 #include <QHBoxLayout>
 
 ZoomWidget::ZoomWidget(QWidget *parent) : QWidget(parent) {
-    setFixedSize(90, 30);
+    setFixedSize(110, 36);
     setStyleSheet(
-        "ZoomWidget { background-color: rgba(60, 60, 60, 200); border-radius: 6px; }"
-        "QPushButton { background-color: transparent; color: white; border: none; font-size: 16px; font-weight: bold; }"
-        "QPushButton:hover { background-color: rgba(255, 255, 255, 40); border-radius: 4px; }"
-        "QLabel { color: white; font-size: 14px; }"
+        "ZoomWidget { background-color: rgba(240, 240, 240, 230); border-radius: 8px; }"
+        "QPushButton { background-color: transparent; color: black; border: none; font-size: 20px; font-weight: bold; }"
+        "QPushButton:hover { background-color: rgba(0, 0, 0, 30); border-radius: 4px; }"
+        "QLabel { color: black; font-size: 20px; }"
     );
 
     auto *layout = new QHBoxLayout(this);
-    layout->setContentsMargins(6, 2, 6, 2);
-    layout->setSpacing(4);
+    layout->setContentsMargins(8, 2, 8, 2);
+    layout->setSpacing(6);
 
     m_zoomOutBtn = new QPushButton("−", this);
-    m_zoomOutBtn->setFixedSize(24, 24);
+    m_zoomOutBtn->setFixedSize(28, 28);
     connect(m_zoomOutBtn, &QPushButton::clicked, this, &ZoomWidget::zoomOutRequested);
 
     m_iconLabel = new QLabel("🔍", this);
 
     m_zoomInBtn = new QPushButton("+", this);
-    m_zoomInBtn->setFixedSize(24, 24);
+    m_zoomInBtn->setFixedSize(28, 28);
     connect(m_zoomInBtn, &QPushButton::clicked, this, &ZoomWidget::zoomInRequested);
 
     layout->addWidget(m_zoomOutBtn);
