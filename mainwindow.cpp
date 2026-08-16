@@ -32,6 +32,8 @@
 #include <QMouseEvent>
 #include <QEvent>
 #include <QCursor>
+#include <QFontMetrics>
+#include <QFontDatabase>
 
 MainWindow::MainWindow(const QString &filePath, QWidget *parent)
     : QMainWindow(parent), m_filePath(filePath) {
@@ -276,9 +278,23 @@ void MainWindow::toggleUnderline() {
 }
 
 void MainWindow::changeFontFamily(const QFont &font) {
+    QFontDatabase fontDb;
+    QList<QFontDatabase::WritingSystem> systems = fontDb.writingSystems(font.family());
+    bool supportsCyrillic = systems.contains(QFontDatabase::Cyrillic);
+
+    qDebug() << "Font:" << font.family() << "writing systems:" << systems << "supports Cyrillic:" << supportsCyrillic;
+
+    if (!supportsCyrillic) {
+        QMessageBox::warning(this, "Шрифт не поддерживает кириллицу",
+            QString("Шрифт \"%1\" не содержит русских букв. "
+                    "Текст на русском языке будет отображаться другим шрифтом.")
+            .arg(font.family()));
+    }
+
     m_pagedWidget->setCurrentFont(font);
     m_pagedWidget->setFocus();
 }
+
 
 void MainWindow::changeFontSize(const QString &size) {
     bool ok;
