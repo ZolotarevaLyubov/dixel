@@ -4,6 +4,7 @@
 
 #include <QWidget>
 #include <QTextCursor>
+#include <QTextListFormat>
 
 class QTextDocument;
 
@@ -27,7 +28,8 @@ public:
     int pageCount() const { return m_document->pageCount(); }
     void setZoom(qreal zoom);
     qreal zoom() const { return m_zoom; }
-
+    void toggleList(QTextListFormat::Style style);
+    void stopList();
 
 protected:
     void paintEvent(QPaintEvent *event) override;

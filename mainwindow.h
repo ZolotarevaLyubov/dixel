@@ -47,6 +47,7 @@ private slots:
     void scrollToPage(int pageIndex);
     void zoomIn();
     void zoomOut();
+    void applyListStyle(int index);
 
 private:
     void setupToolbar();
@@ -64,6 +65,7 @@ private:
     QComboBox *m_paragraphSpacingCombo;
     QLabel *m_pageCountLabel;
     ZoomWidget *m_zoomWidget;
+    QComboBox *m_listCombo;
 
     MinimapWidget *m_minimap;
 

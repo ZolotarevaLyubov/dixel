@@ -34,6 +34,7 @@
 #include <QCursor>
 #include <QFontMetrics>
 #include <QFontDatabase>
+#include <QTextListFormat>
 
 MainWindow::MainWindow(const QString &filePath, QWidget *parent)
     : QMainWindow(parent), m_filePath(filePath) {
@@ -164,6 +165,18 @@ void MainWindow::setupToolbar() {
     m_paragraphSpacingCombo->setCurrentIndex(0);
     toolbar->addWidget(m_paragraphSpacingCombo);
     connect(m_paragraphSpacingCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MainWindow::toggleParagraphSpacing);
+
+    toolbar->addSeparator();
+
+    m_listCombo = new QComboBox(this);
+    m_listCombo->addItem("Нумерация: без списка", -1);
+    m_listCombo->addItem("Нумерация: • Маркеры", QTextListFormat::ListDisc);
+    m_listCombo->addItem("Нумерация: ○ Кружки", QTextListFormat::ListCircle);
+    m_listCombo->addItem("Нумерация: 1. Цифры", QTextListFormat::ListDecimal);
+    m_listCombo->addItem("Нумерация: a. Буквы", QTextListFormat::ListLowerAlpha);
+    m_listCombo->addItem("Нумерация: i. Римские", QTextListFormat::ListLowerRoman);
+    toolbar->addWidget(m_listCombo);
+    connect(m_listCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MainWindow::applyListStyle);
 }
 
 void MainWindow::setupMenu() {
@@ -421,4 +434,14 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event) {
         }
     }
     return QMainWindow::eventFilter(watched, event);
+}
+
+void MainWindow::applyListStyle(int index) {
+    int styleValue = m_listCombo->itemData(index).toInt();
+    if (styleValue == -1) {
+        m_pagedWidget->stopList();
+    } else {
+        m_pagedWidget->toggleList(static_cast<QTextListFormat::Style>(styleValue));
+    }
+    m_pagedWidget->setFocus();
 }

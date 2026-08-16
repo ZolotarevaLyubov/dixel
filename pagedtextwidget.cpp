@@ -12,6 +12,7 @@
 #include <QMenu>
 #include <QContextMenuEvent>
 #include <QRegularExpression>
+#include <QTextList>
 
 PagedTextWidget::PagedTextWidget(QTextDocument *document, QWidget *parent)
     : QWidget(parent), m_document(document), m_cursor(document) {
@@ -297,5 +298,35 @@ void PagedTextWidget::updateWidgetSize() {
 void PagedTextWidget::setZoom(qreal zoom) {
     m_zoom = qBound(0.3, zoom, 3.0);
     updateWidgetSize();
+    update();
+}
+
+void PagedTextWidget::toggleList(QTextListFormat::Style style) {
+    QTextListFormat listFmt;
+    QTextList *currentList = m_cursor.currentList();
+    if (currentList) {
+        listFmt = currentList->format();
+    }
+    listFmt.setStyle(style);
+    m_cursor.createList(listFmt);
+    update();
+}
+
+void PagedTextWidget::stopList() {
+    QTextList *currentList = m_cursor.currentList();
+    if (!currentList) return;
+
+    // Переходим на новую строку, чтобы список не продолжался автоматически
+    m_cursor.insertBlock();
+
+    // Явно убираем новый (пустой) блок из списка и сбрасываем отступ
+    QTextList *newBlockList = m_cursor.currentList();
+    if (newBlockList) {
+        newBlockList->remove(m_cursor.block());
+    }
+    QTextBlockFormat blockFmt = m_cursor.blockFormat();
+    blockFmt.setIndent(0);
+    m_cursor.setBlockFormat(blockFmt);
+
     update();
 }
