@@ -35,6 +35,8 @@
 #include <QFontMetrics>
 #include <QFontDatabase>
 #include <QTextListFormat>
+#include <QInputDialog>
+#include "notepopup.h"
 
 MainWindow::MainWindow(const QString &filePath, QWidget *parent)
     : QMainWindow(parent), m_filePath(filePath) {
@@ -46,6 +48,19 @@ MainWindow::MainWindow(const QString &filePath, QWidget *parent)
 
     m_pagedWidget = new PagedTextWidget(m_document, this);
     connect(m_pagedWidget, &PagedTextWidget::saveRequested, this, &MainWindow::saveFile);
+    connect(m_pagedWidget, &PagedTextWidget::noteMarkerInserted, this, &MainWindow::onNoteMarkerInserted);
+    connect(m_pagedWidget, &PagedTextWidget::noteHovered, this, &MainWindow::onNoteHovered);
+    connect(m_pagedWidget, &PagedTextWidget::noteHoverEnded, this, &MainWindow::onNoteHoverEnded);
+    connect(m_pagedWidget, &PagedTextWidget::noteClicked, this, &MainWindow::onNoteClicked);
+    m_notePopup = new NotePopup(this);
+    m_notePopup->hide();
+
+    connect(m_notePopup, &NotePopup::textChanged, this, [this](const QString &text) {
+    if (m_activeNoteIndex >= 0) {
+        m_pagedWidget->setNoteText(m_activeNoteIndex, text);
+        m_document->setModified(true);
+    }
+});
 
     auto *container = new QWidget();
     auto *containerLayout = new QHBoxLayout(container);
@@ -235,9 +250,19 @@ void MainWindow::loadFile() {
     if (file.exists() && file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         QTextStream in(&file);
         in.setEncoding(QStringConverter::Utf8);
-        m_document->setHtml(in.readAll());
-        m_document->setModified(false);
+        QString content = in.readAll();
         file.close();
+
+        QStringList parts = content.split("\n<!--DIXEL_NOTES_SEPARATOR-->\n");
+
+        m_document->setHtml(parts[0]);
+
+        if (parts.size() > 1 && !parts[1].isEmpty()) {
+            QStringList notes = parts[1].split("<!--DIXEL_NOTE_SEPARATOR-->");
+            m_pagedWidget->loadNotes(notes);
+        }
+
+        m_document->setModified(false);
     }
 }
 
@@ -246,7 +271,11 @@ void MainWindow::saveFile() {
     if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
         QTextStream out(&file);
         out.setEncoding(QStringConverter::Utf8);
+
         out << m_document->toHtml();
+        out << "\n<!--DIXEL_NOTES_SEPARATOR-->\n";
+        out << m_pagedWidget->notesTexts().join("<!--DIXEL_NOTE_SEPARATOR-->");
+
         file.close();
         m_document->setModified(false);
         QMessageBox::information(this, "Сохранено", "Файл сохранён");
@@ -444,4 +473,40 @@ void MainWindow::applyListStyle(int index) {
         m_pagedWidget->toggleList(static_cast<QTextListFormat::Style>(styleValue));
     }
     m_pagedWidget->setFocus();
+}
+
+void MainWindow::onNoteMarkerInserted(int index) {
+    bool ok;
+    QString text = QInputDialog::getMultiLineText(this, "Заметка", "Текст заметки (до 200 символов):", "", &ok);
+    if (ok) {
+        if (text.length() > 200) text = text.left(200);
+        m_pagedWidget->setNoteText(index, text);
+    }
+}
+
+void MainWindow::onNoteHovered(int index, QPoint globalPos) {
+    if (m_notePopup->isVisible() && m_activeNoteIndex >= 0) return; // не перебиваем открытый режим редактирования
+
+    m_activeNoteIndex = index;
+    m_notePopup->setEditable(false);
+    m_notePopup->setText(m_pagedWidget->getNoteText(index));
+    m_notePopup->move(globalPos.x() + 15, globalPos.y() - 10);
+    m_notePopup->show();
+    m_notePopup->raise();
+}
+
+void MainWindow::onNoteHoverEnded() {
+    m_notePopup->hide();
+    m_activeNoteIndex = -1;
+}
+
+void MainWindow::onNoteClicked(int index, QPoint globalPos) {
+    m_activeNoteIndex = index;
+    m_notePopup->setEditable(true);
+    m_notePopup->setText(m_pagedWidget->getNoteText(index));
+    m_notePopup->move(globalPos.x() + 15, globalPos.y() - 10);
+    m_notePopup->show();
+    m_notePopup->raise();
+    m_notePopup->setFocus();
+
 }

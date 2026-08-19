@@ -5,6 +5,7 @@
 #include <QPainter>
 #include <QMouseEvent>
 
+
 MinimapWidget::MinimapWidget(QTextDocument *document, QWidget *parent)
     : QWidget(parent), m_document(document) {
     int miniPageWidth = PAGE_WIDTH * SCALE;

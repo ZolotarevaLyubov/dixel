@@ -18,6 +18,7 @@ PagedTextWidget::PagedTextWidget(QTextDocument *document, QWidget *parent)
     : QWidget(parent), m_document(document), m_cursor(document) {
     m_document->setPageSize(QSizeF(PAGE_WIDTH, PAGE_HEIGHT));
 
+    setMouseTracking(true);
     updateWidgetSize();
 
     connect(m_document, &QTextDocument::contentsChanged, this, [this]() {
@@ -45,6 +46,13 @@ int PagedTextWidget::hitTestToDocPos(const QPoint &widgetPos) {
 }
 
 void PagedTextWidget::mousePressEvent(QMouseEvent *event) {
+    for (int i = 0; i < m_noteMarkerRects.size(); ++i) {
+        if (m_noteMarkerRects[i].contains(event->pos())) {
+            emit noteClicked(i, mapToGlobal(event->pos()));
+            return;
+        }
+    }
+
     int pos = hitTestToDocPos(event->pos());
     if (pos >= 0) {
         m_cursor.setPosition(pos);
@@ -54,15 +62,32 @@ void PagedTextWidget::mousePressEvent(QMouseEvent *event) {
     }
 }
 
-void PagedTextWidget::mouseMoveEvent(QMouseEvent *event) {
-    if (event->buttons() & Qt::LeftButton) {
-        int pos = hitTestToDocPos(event->pos());
-        if (pos >= 0) {
-            m_cursor.setPosition(pos, QTextCursor::KeepAnchor);
-            update();
+    void PagedTextWidget::mouseMoveEvent(QMouseEvent *event) {
+        int hoveredIndex = -1;
+        for (int i = 0; i < m_noteMarkerRects.size(); ++i) {
+            if (m_noteMarkerRects[i].contains(event->pos())) {
+                hoveredIndex = i;
+                break;
+            }
+        }
+
+        if (hoveredIndex != m_hoveredNoteIndex) {
+            m_hoveredNoteIndex = hoveredIndex;
+            if (hoveredIndex >= 0) {
+                emit noteHovered(hoveredIndex, mapToGlobal(event->pos()));
+            } else {
+                emit noteHoverEnded();
+            }
+        }
+
+        if (event->buttons() & Qt::LeftButton) {
+            int pos = hitTestToDocPos(event->pos());
+            if (pos >= 0) {
+                m_cursor.setPosition(pos, QTextCursor::KeepAnchor);
+                update();
+            }
         }
     }
-}
 
 void PagedTextWidget::keyPressEvent(QKeyEvent *event) {
 
@@ -75,6 +100,7 @@ void PagedTextWidget::keyPressEvent(QKeyEvent *event) {
             case Qt::Key_Y: redoAction(); return;
             case Qt::Key_A: selectAll(); return;
             case Qt::Key_S: emit saveRequested(); return;
+            case Qt::Key_N: addNoteAtSelection(); return;
             default: break;
         }
     }
@@ -131,6 +157,9 @@ void PagedTextWidget::paintEvent(QPaintEvent *event) {
     int scaledPageHeight = PAGE_HEIGHT * m_zoom;
     int scaledPageGap = PAGE_GAP * m_zoom;
 
+    m_noteMarkerRects.clear();
+    m_noteMarkerRects.resize(m_notes.size());
+
     for (int page = 0; page < pageCount; ++page) {
         int yOffset = page * (scaledPageHeight + scaledPageGap);
 
@@ -159,6 +188,30 @@ void PagedTextWidget::paintEvent(QPaintEvent *event) {
         }
 
         m_document->documentLayout()->draw(&painter, ctx);
+
+        for (int i = 0; i < m_notes.size(); ++i) {
+            QTextCursor &noteCursor = m_notes[i].cursor;
+            QTextBlock noteBlock = noteCursor.block();
+            QRectF blockRect = m_document->documentLayout()->blockBoundingRect(noteBlock);
+
+            qreal pageTop = page * PAGE_HEIGHT;
+            qreal pageBottom = pageTop + PAGE_HEIGHT;
+
+            if (blockRect.top() >= pageTop && blockRect.top() < pageBottom) {
+                QTextLine noteLine = noteBlock.layout()->lineForTextPosition(noteCursor.position() - noteBlock.position());
+                if (noteLine.isValid()) {
+                    qreal markerX = noteLine.cursorToX(noteCursor.position() - noteBlock.position()) + blockRect.left();
+                    qreal markerY = blockRect.top() + noteLine.y();
+
+                    QRectF docRect(markerX - 5, markerY - 5, 25, noteLine.height() + 10);
+                    //QPoint topLeft = mapFromParent(painter.transform().map(docRect.topLeft()).toPoint());
+                    // Экранные координаты маркера с учётом текущего translate/scale отрисовки:
+                    QPointF screenTopLeft = painter.transform().map(docRect.topLeft());
+                    QPointF screenBottomRight = painter.transform().map(docRect.bottomRight());
+                    m_noteMarkerRects[i] = QRect(screenTopLeft.toPoint(), screenBottomRight.toPoint());
+                }
+            }
+        }
 
         QTextBlock block = m_cursor.block();
         int cursorPos = m_cursor.position();
@@ -327,6 +380,59 @@ void PagedTextWidget::stopList() {
     QTextBlockFormat blockFmt = m_cursor.blockFormat();
     blockFmt.setIndent(0);
     m_cursor.setBlockFormat(blockFmt);
+
+    update();
+}
+
+void PagedTextWidget::addNoteAtSelection() {
+    if (!m_cursor.hasSelection()) return;
+
+    QTextCursor insertCursor = m_cursor;
+    insertCursor.setPosition(m_cursor.selectionEnd());
+
+    QTextCharFormat markerFormat;
+    markerFormat.setForeground(QColor(255, 180, 0));
+    markerFormat.setFontWeight(QFont::Bold);
+    insertCursor.insertText("*", markerFormat);
+
+    QTextCursor noteCursor = insertCursor;
+    noteCursor.setPosition(insertCursor.position() - 1);
+
+    NoteData note;
+    note.cursor = noteCursor;
+    note.text = "";
+    m_notes.append(note);
+
+    m_cursor = insertCursor;
+    update();
+
+    emit noteMarkerInserted(m_notes.size() - 1);
+}
+
+QStringList PagedTextWidget::notesTexts() const {
+    QStringList result;
+    for (const auto &note : m_notes) {
+        result << note.text;
+    }
+    return result;
+}
+
+void PagedTextWidget::loadNotes(const QStringList &texts) {
+    m_notes.clear();
+
+    QTextCursor searchCursor(m_document);
+    int noteIndex = 0;
+
+    while (noteIndex < texts.size()) {
+        searchCursor = m_document->find("*", searchCursor);
+        if (searchCursor.isNull()) break;
+
+        NoteData note;
+        note.cursor = searchCursor;
+        note.text = texts[noteIndex];
+        m_notes.append(note);
+        noteIndex++;
+    }
 
     update();
 }

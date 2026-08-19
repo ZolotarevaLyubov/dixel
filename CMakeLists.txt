@@ -32,6 +32,8 @@ add_executable(Dixel main.cpp
         minimapwidget.cpp
         zoomwidget.h
         zoomwidget.cpp
+        notepopup.h
+        notepopup.cpp
         )
 target_link_libraries(Dixel
         Qt::Core

@@ -10,6 +10,10 @@ class QTextDocument;
 
 class PagedTextWidget : public QWidget {
     Q_OBJECT
+    struct NoteData {
+        QTextCursor cursor;
+        QString text;
+    };
 public:
     explicit PagedTextWidget(QTextDocument *document, QWidget *parent = nullptr);
 
@@ -30,6 +34,13 @@ public:
     qreal zoom() const { return m_zoom; }
     void toggleList(QTextListFormat::Style style);
     void stopList();
+    void addNoteAtSelection();
+    QString getNoteText(int index) const { return m_notes[index].text; }
+    void setNoteText(int index, const QString &text) { m_notes[index].text = text; update(); }
+    QRect noteMarkerScreenRect(int index) const;
+    int noteCount() const { return m_notes.size(); }
+    QStringList notesTexts() const;
+    void loadNotes(const QStringList &texts);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -56,10 +67,17 @@ private:
     static const int PAGE_HEIGHT = 1123;
     static const int PAGE_GAP = 20;
     QTextCharFormat m_pendingFormat;
+    QVector<NoteData> m_notes;
+    QVector<QRect> m_noteMarkerRects;
+    int m_hoveredNoteIndex = -1;
 
     signals:
     void saveRequested();
     void pageCountChanged(int count);
+    void noteMarkerInserted(int index);
+    void noteHovered(int index, QPoint globalPos);
+    void noteHoverEnded();
+    void noteClicked(int index, QPoint globalPos);
 };
 
 #endif //DIXEL_PAGEDTEXTWIDGET_H

@@ -13,7 +13,7 @@ class PagedTextWidget;
 class QLabel;
 class MinimapWidget;
 class ZoomWidget;
-
+class NotePopup;
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -48,6 +48,10 @@ private slots:
     void zoomIn();
     void zoomOut();
     void applyListStyle(int index);
+    void onNoteMarkerInserted(int index);
+    void onNoteHovered(int index, QPoint globalPos);
+    void onNoteHoverEnded();
+    void onNoteClicked(int index, QPoint globalPos);
 
 private:
     void setupToolbar();
@@ -66,6 +70,8 @@ private:
     QLabel *m_pageCountLabel;
     ZoomWidget *m_zoomWidget;
     QComboBox *m_listCombo;
+    NotePopup *m_notePopup;
+    int m_activeNoteIndex = -1;
 
     MinimapWidget *m_minimap;
 
