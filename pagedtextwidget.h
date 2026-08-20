@@ -13,6 +13,9 @@ class PagedTextWidget : public QWidget {
     struct NoteData {
         QTextCursor cursor;
         QString text;
+        QColor color = Qt::black;
+        int fontSize = 11;
+        bool glow = false;
     };
 public:
     explicit PagedTextWidget(QTextDocument *document, QWidget *parent = nullptr);
@@ -37,6 +40,12 @@ public:
     void addNoteAtSelection();
     QString getNoteText(int index) const { return m_notes[index].text; }
     void setNoteText(int index, const QString &text) { m_notes[index].text = text; update(); }
+    QColor getNoteColor(int index) const { return m_notes[index].color; }
+    void setNoteColor(int index, const QColor &color) { m_notes[index].color = color; }
+    int getNoteFontSize(int index) const { return m_notes[index].fontSize; }
+    void setNoteFontSize(int index, int size) { m_notes[index].fontSize = size; }
+    bool getNoteGlow(int index) const { return m_notes[index].glow; }
+    void setNoteGlow(int index, bool glow) { m_notes[index].glow = glow; }
     QRect noteMarkerScreenRect(int index) const;
     int noteCount() const { return m_notes.size(); }
     QStringList notesTexts() const;
@@ -60,6 +69,7 @@ private:
     void applyDefaultParagraphSpacing(QTextCursor &cursor, int fromPos, int toPos);
     void updateWidgetSize();
     qreal m_zoom = 1.0;
+    void sortNotesByPosition();
 
     QTextDocument *m_document;
     QTextCursor m_cursor;

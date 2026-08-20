@@ -61,6 +61,26 @@ MainWindow::MainWindow(const QString &filePath, QWidget *parent)
         m_document->setModified(true);
     }
 });
+    connect(m_notePopup, &NotePopup::colorChanged, this, [this](const QColor &color) {
+    if (m_activeNoteIndex >= 0) {
+        m_pagedWidget->setNoteColor(m_activeNoteIndex, color);
+        m_document->setModified(true);
+    }
+});
+
+    connect(m_notePopup, &NotePopup::fontSizeChanged, this, [this](int size) {
+        if (m_activeNoteIndex >= 0) {
+            m_pagedWidget->setNoteFontSize(m_activeNoteIndex, size);
+            m_document->setModified(true);
+        }
+    });
+
+    connect(m_notePopup, &NotePopup::glowChanged, this, [this](bool glow) {
+        if (m_activeNoteIndex >= 0) {
+            m_pagedWidget->setNoteGlow(m_activeNoteIndex, glow);
+            m_document->setModified(true);
+        }
+    });
 
     auto *container = new QWidget();
     auto *containerLayout = new QHBoxLayout(container);
@@ -484,29 +504,34 @@ void MainWindow::onNoteMarkerInserted(int index) {
     }
 }
 
+void MainWindow::onNoteHoverEnded() {
+    m_notePopup->hide();
+    m_activeNoteIndex = -1;
+}
+
 void MainWindow::onNoteHovered(int index, QPoint globalPos) {
-    if (m_notePopup->isVisible() && m_activeNoteIndex >= 0) return; // не перебиваем открытый режим редактирования
+    if (m_notePopup->isVisible() && m_activeNoteIndex >= 0) return;
 
     m_activeNoteIndex = index;
     m_notePopup->setEditable(false);
     m_notePopup->setText(m_pagedWidget->getNoteText(index));
+    m_notePopup->setNoteColor(m_pagedWidget->getNoteColor(index));
+    m_notePopup->setNoteFontSize(m_pagedWidget->getNoteFontSize(index));
+    m_notePopup->setNoteGlow(m_pagedWidget->getNoteGlow(index));
     m_notePopup->move(globalPos.x() + 15, globalPos.y() - 10);
     m_notePopup->show();
     m_notePopup->raise();
-}
-
-void MainWindow::onNoteHoverEnded() {
-    m_notePopup->hide();
-    m_activeNoteIndex = -1;
 }
 
 void MainWindow::onNoteClicked(int index, QPoint globalPos) {
     m_activeNoteIndex = index;
     m_notePopup->setEditable(true);
     m_notePopup->setText(m_pagedWidget->getNoteText(index));
+    m_notePopup->setNoteColor(m_pagedWidget->getNoteColor(index));
+    m_notePopup->setNoteFontSize(m_pagedWidget->getNoteFontSize(index));
+    m_notePopup->setNoteGlow(m_pagedWidget->getNoteGlow(index));
     m_notePopup->move(globalPos.x() + 15, globalPos.y() - 10);
     m_notePopup->show();
     m_notePopup->raise();
     m_notePopup->setFocus();
-
 }

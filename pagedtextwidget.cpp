@@ -13,6 +13,7 @@
 #include <QContextMenuEvent>
 #include <QRegularExpression>
 #include <QTextList>
+#include <algorithm>
 
 PagedTextWidget::PagedTextWidget(QTextDocument *document, QWidget *parent)
     : QWidget(parent), m_document(document), m_cursor(document) {
@@ -403,16 +404,37 @@ void PagedTextWidget::addNoteAtSelection() {
     note.text = "";
     m_notes.append(note);
 
+    sortNotesByPosition();
+
     m_cursor = insertCursor;
     update();
 
-    emit noteMarkerInserted(m_notes.size() - 1);
+    // Находим индекс только что добавленной заметки после сортировки
+    int newIndex = 0;
+    for (int i = 0; i < m_notes.size(); ++i) {
+        if (m_notes[i].cursor.position() == noteCursor.position()) {
+            newIndex = i;
+            break;
+        }
+    }
+
+    emit noteMarkerInserted(newIndex);
 }
 
 QStringList PagedTextWidget::notesTexts() const {
+    QVector<NoteData> sorted = m_notes;
+    std::sort(sorted.begin(), sorted.end(), [](const NoteData &a, const NoteData &b) {
+        return a.cursor.position() < b.cursor.position();
+    });
+
     QStringList result;
-    for (const auto &note : m_notes) {
-        result << note.text;
+    for (const auto &note : sorted) {
+        QString packed = QString("%1|%2|%3|%4")
+            .arg(note.text)
+            .arg(note.color.name())
+            .arg(note.fontSize)
+            .arg(note.glow ? "1" : "0");
+        result << packed;
     }
     return result;
 }
@@ -427,12 +449,24 @@ void PagedTextWidget::loadNotes(const QStringList &texts) {
         searchCursor = m_document->find("*", searchCursor);
         if (searchCursor.isNull()) break;
 
+        QStringList parts = texts[noteIndex].split("|");
+
         NoteData note;
         note.cursor = searchCursor;
-        note.text = texts[noteIndex];
+        note.text = parts.value(0, "");
+        note.color = parts.size() > 1 ? QColor(parts[1]) : Qt::black;
+        note.fontSize = parts.size() > 2 ? parts[2].toInt() : 11;
+        note.glow = parts.size() > 3 ? parts[3] == "1" : false;
+
         m_notes.append(note);
         noteIndex++;
     }
 
     update();
+}
+
+void PagedTextWidget::sortNotesByPosition() {
+    std::sort(m_notes.begin(), m_notes.end(), [](const NoteData &a, const NoteData &b) {
+        return a.cursor.position() < b.cursor.position();
+    });
 }
